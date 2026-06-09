@@ -2,18 +2,52 @@
 // Brown Softball — shared site logic
 // ============================================================
 
+// Store: Firestore-backed with in-memory cache for synchronous reads.
+// Call Store.init(db) once (in the boot sequence) before any page code runs.
 const Store = {
-  get(key, fallback) {
+  _cache: {},
+  _db: null,
+
+  async init(db) {
+    this._db = db;
     try {
-      const raw = localStorage.getItem('bsb.' + key);
-      return raw === null ? fallback : JSON.parse(raw);
-    } catch { return fallback; }
+      const snapshot = await db.collection('store').get();
+      snapshot.forEach(doc => { this._cache[doc.id] = doc.data().value; });
+    } catch (e) { console.warn('Firestore load error:', e); }
+
+    // Live listener — keeps cache fresh when other clients write
+    db.collection('store').onSnapshot(snapshot => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type !== 'removed') {
+          const key = change.doc.id;
+          const incoming = change.doc.data().value;
+          if (JSON.stringify(this._cache[key]) !== JSON.stringify(incoming)) {
+            this._cache[key] = incoming;
+            if (key === 'messages' || key === 'chats') {
+              try { updateDmBadge(); } catch (_) {}
+            }
+          }
+        }
+      });
+    }, () => {});
   },
+
+  get(key, fallback = null) {
+    const v = this._cache[key];
+    return v !== undefined ? v : fallback;
+  },
+
   set(key, value) {
-    localStorage.setItem('bsb.' + key, JSON.stringify(value));
+    this._cache[key] = value;
+    if (this._db) {
+      this._db.collection('store').doc(key).set({ value })
+        .catch(e => console.warn('Firestore write error:', e));
+    }
   },
+
   remove(key) {
-    localStorage.removeItem('bsb.' + key);
+    delete this._cache[key];
+    if (this._db) this._db.collection('store').doc(key).delete().catch(() => {});
   }
 };
 
@@ -21,35 +55,31 @@ const Store = {
 // Auth
 // ============================================================
 const Auth = {
-  // Per-tab override (sessionStorage) wins over the persistent sign-in
-  // (localStorage). Lets you view two accounts at once in separate tabs.
+  // Dev-mode tab override (sessionStorage) wins over the real Firebase user.
+  // Lets you view two accounts at once in separate tabs during testing.
   currentUser() {
-    const id = sessionStorage.getItem('bsb.tabUserId') || Store.get('currentUserId', null);
-    if (!id) return null;
-    const users = Store.get('users', []);
-    return users.find(u => u.id === id) || null;
+    const tabId = sessionStorage.getItem('bsb.tabUserId');
+    if (tabId) return Store.get('users', []).find(u => u.id === tabId) || null;
+    const fbUser = window.fbAuth?.currentUser;
+    if (!fbUser) return null;
+    const email = (fbUser.email || '').toLowerCase();
+    return Store.get('users', []).find(u => (u.email || '').toLowerCase() === email) || null;
   },
   signOut() {
     sessionStorage.removeItem('bsb.tabUserId');
-    Store.remove('currentUserId');
-    location.href = 'signin.html';
+    window.fbAuth?.signOut().finally(() => { location.href = 'signin.html'; });
   },
   requireAuth() {
-    if (!this.currentUser()) {
-      location.href = 'signin.html';
-      return false;
-    }
+    if (!window.fbAuth?.currentUser) { location.href = 'signin.html'; return false; }
     return true;
   },
-  isPlayer() { return this.currentUser()?.role === 'player'; },
-  isCoach()  { return this.currentUser()?.role === 'coach'; },
+  isPlayer()      { return this.currentUser()?.role === 'player'; },
+  isCoach()       { return this.currentUser()?.role === 'coach'; },
   isTabOverride() { return !!sessionStorage.getItem('bsb.tabUserId'); },
-  setTabUser(id) {
+  setTabUser(id)  {
     if (id) sessionStorage.setItem('bsb.tabUserId', id);
-    else sessionStorage.removeItem('bsb.tabUserId');
+    else    sessionStorage.removeItem('bsb.tabUserId');
   },
-  // Dev mode gates the Switch-user UI, the test-view banner, and ?as=USER_ID.
-  // Toggle with ?dev=1 (enable) or ?dev=0 (disable); sticks per-tab via sessionStorage.
   isDevMode() { return sessionStorage.getItem('bsb.dev') === '1'; },
 };
 
@@ -2056,16 +2086,29 @@ function openAvailEditor() {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   const page = document.body.dataset.page;
-  applyUrlFlags();
-  if (page === 'auth') return;
-  if (!Auth.requireAuth()) return;
+  if (page === 'auth') return; // signin.html drives its own flow
 
-  migrateMessagesToChats();
-  renderTopbar();
-  startNotifications();
+  // Wait for Firebase to restore the auth session, then load Firestore data.
+  window.fbAuth.onAuthStateChanged(async (firebaseUser) => {
+    if (!firebaseUser) { location.href = 'signin.html'; return; }
 
-  if (page === 'home') initHome();
-  if (page === 'messages') initMessages();
-  if (page === 'practices') initPractices();
-  if (page === 'calendars') initCalendars();
+    await Store.init(window.fbDb);
+    applyUrlFlags(); // needs Store loaded so ?as= validation works
+
+    // Guard: user has Firebase session but no profile yet → finish setup
+    const email = (firebaseUser.email || '').toLowerCase();
+    if (!Store.get('users', []).find(u => (u.email || '').toLowerCase() === email)) {
+      location.href = 'signin.html';
+      return;
+    }
+
+    migrateMessagesToChats();
+    renderTopbar();
+    startNotifications();
+
+    if (page === 'home')      initHome();
+    if (page === 'messages')  initMessages();
+    if (page === 'practices') initPractices();
+    if (page === 'calendars') initCalendars();
+  });
 });

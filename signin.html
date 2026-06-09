@@ -8,13 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
-<script src="config.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-init.js"></script>
 </head>
 <body data-page="auth">
 
 <div class="auth-page">
-  <div class="auth-card">
+  <div class="auth-card" id="auth-card" style="display:none">
     <div class="auth-brand">
       <div class="brand-mark">B</div>
       <div>
@@ -23,19 +25,24 @@
       </div>
     </div>
 
-    <div class="auth-headline" id="auth-headline">Welcome to the dugout</div>
-    <div class="auth-sub" id="auth-sub">Sign in with your Gmail to join the team</div>
+    <div class="auth-headline">Welcome to the dugout</div>
+    <div class="auth-sub">Sign in with your Gmail to join the team</div>
 
-    <!-- Google sign-in -->
-    <div class="google-section" id="google-section">
-      <div class="g-host" id="google-btn"></div>
-      <div class="auth-error" id="google-error" style="text-align:center;margin-top:8px"></div>
-    </div>
+    <button class="google-btn" id="google-signin-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-error" id="google-error" style="text-align:center;margin-top:8px"></div>
     <div class="auth-fineprint">Only @gmail.com accounts are allowed.</div>
   </div>
 </div>
 
-<!-- Role picker shown after first Google sign-in -->
+<!-- Role picker — shown after first Google sign-in -->
 <div class="modal-backdrop" id="role-modal">
   <div class="modal">
     <div class="modal-title" id="role-modal-title">Welcome to the team</div>
@@ -73,127 +80,93 @@
 
 <script src="app.js"></script>
 <script>
-  // Only Gmail addresses are accepted (team policy).
   const GMAIL_RE = /^[^\s@]+@gmail\.com$/i;
+  const PLAYER_COLORS = ['#d62828','#4a7d3e','#c7912d','#4a5a6b','#b8302a','#7a4ca3','#1a6b8c','#8a4b1f','#2a7059'];
+  let _pendingFbUser = null;
 
-  // ---- Helpers ----
-  function createUserFromProfile({ name, role, password, email, googleSignup }) {
-    const users = Store.get('users', []);
-    const initials = name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    const PLAYER_COLORS = ['#d62828', '#4a7d3e', '#c7912d', '#4a5a6b', '#b8302a', '#7a4ca3', '#1a6b8c', '#8a4b1f', '#2a7059'];
-    const color = role === 'coach' ? '#3d2817' : PLAYER_COLORS[users.filter(u => u.role === 'player').length % PLAYER_COLORS.length];
-    const user = {
-      id: 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      name,
-      firstName: name.split(/\s+/)[0],
-      initials,
-      role,
-      color,
-      password: password || null,
-      email: email || null,
-      googleSignup: !!googleSignup,
-      createdAt: Date.now(),
-    };
-    users.push(user);
-    Store.set('users', users);
-    return user;
-  }
-
-  // ---- Google sign-in ----
-  function decodeJwt(token) {
-    const payload = token.split('.')[1];
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(decodeURIComponent(escape(json)));
-  }
-
-  let pendingGoogle = null;
-
-  window.handleGoogleCredential = function(response) {
-    const payload = decodeJwt(response.credential);
-    const email = (payload.email || '').toLowerCase();
-    const name = payload.name || email.split('@')[0];
-    const gErr = document.getElementById('google-error');
-    gErr.textContent = '';
-
-    if (!GMAIL_RE.test(email)) {
-      gErr.textContent = 'Only Gmail accounts are allowed — pick a different Google account.';
+  // ── Auth state: fires on load + after sign-in ───────────────
+  fbAuth.onAuthStateChanged(async (fbUser) => {
+    if (!fbUser) {
+      document.getElementById('auth-card').style.display = '';
       return;
     }
 
-    const users = Store.get('users', []);
+    const email = (fbUser.email || '').toLowerCase();
+
+    // Check if this person already has a profile
+    let users = [];
+    try {
+      const doc = await fbDb.collection('store').doc('users').get();
+      users = doc.exists ? (doc.data().value || []) : [];
+    } catch (e) { console.warn('Firestore read error', e); }
+
     const existing = users.find(u => (u.email || '').toLowerCase() === email);
     if (existing) {
-      Store.set('currentUserId', existing.id);
       location.href = 'index.html';
       return;
     }
-    pendingGoogle = { email, name };
-    document.getElementById('role-modal-sub').textContent = `Hi ${name.split(' ')[0]} — pick your role to join the team`;
-    document.getElementById('role-modal').classList.add('show');
-  };
 
-  document.getElementById('role-submit').addEventListener('click', () => {
-    if (!pendingGoogle) return;
-    const role = document.querySelector('input[name="new-role"]:checked').value;
-    const user = createUserFromProfile({
-      name: pendingGoogle.name,
-      role,
-      email: pendingGoogle.email,
-      googleSignup: true,
-    });
-    Store.set('currentUserId', user.id);
-    location.href = 'index.html';
+    // New user — show role picker
+    _pendingFbUser = fbUser;
+    document.getElementById('auth-card').style.display = '';
+    document.getElementById('role-modal-sub').textContent =
+      `Hi ${(fbUser.displayName || email).split(' ')[0]} — pick your role to join the team`;
+    document.getElementById('role-modal').classList.add('show');
   });
 
-  // ---- Init Google ----
-  function initGoogle() {
-    const section = document.getElementById('google-section');
-
-    // Google OAuth blocks any file:// origin. Most common failure mode is
-    // double-clicking signin.html instead of going through the local server.
-    if (location.protocol === 'file:') {
-      section.innerHTML = `
-        <div class="config-warn">
-          <strong>Open this via the local server.</strong>
-          Google sign-in only works at <code>http://localhost</code>, not when the file is opened directly.<br><br>
-          From the project folder, run<br>
-          <code>python -m http.server 5173</code><br>
-          then visit <code>http://localhost:5173/signin.html</code>.
-        </div>
-      `;
-      return;
-    }
-
-    const cid = window.GOOGLE_CLIENT_ID;
-    if (!cid || cid.startsWith('YOUR_CLIENT_ID')) {
-      section.innerHTML = `<div class="config-warn"><strong>Google sign-in not configured yet.</strong> Add your Client ID to <code>config.js</code> — instructions are in that file.</div>`;
-      return;
-    }
-    if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
-      setTimeout(initGoogle, 120);
-      return;
-    }
-    google.accounts.id.initialize({
-      client_id: cid,
-      callback: window.handleGoogleCredential,
-      auto_select: false,
-      use_fedcm_for_prompt: true,
+  // ── Sign-in button ──────────────────────────────────────────
+  document.getElementById('google-signin-btn').addEventListener('click', () => {
+    const gErr = document.getElementById('google-error');
+    gErr.textContent = '';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithPopup(provider).catch(err => {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        gErr.textContent = 'Sign-in failed — please try again.';
+      }
     });
-    google.accounts.id.renderButton(
-      document.getElementById('google-btn'),
-      { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'left', width: 320 }
-    );
-    // Note: One Tap prompt removed for now — it doesn't play well with
-    // sandboxed previews. The button works fine on its own.
-  }
-  initGoogle();
+  });
 
-  // ---- If already signed in, bounce ----
-  if (Store.get('currentUserId', null)) {
-    const users = Store.get('users', []);
-    const exists = users.find(u => u.id === Store.get('currentUserId', null));
-    if (exists) location.href = 'index.html';
-  }
+  // ── Role picker ─────────────────────────────────────────────
+  document.getElementById('role-submit').addEventListener('click', async () => {
+    const fbUser = _pendingFbUser || fbAuth.currentUser;
+    if (!fbUser) return;
+
+    const email = (fbUser.email || '').toLowerCase();
+    if (!GMAIL_RE.test(email)) {
+      document.getElementById('google-error').textContent = 'Only Gmail accounts are allowed.';
+      fbAuth.signOut();
+      return;
+    }
+
+    const role = document.querySelector('input[name="new-role"]:checked').value;
+    const name = fbUser.displayName || email.split('@')[0];
+
+    let users = [];
+    try {
+      const doc = await fbDb.collection('store').doc('users').get();
+      users = doc.exists ? (doc.data().value || []) : [];
+    } catch (e) {}
+
+    const color = role === 'coach'
+      ? '#3d2817'
+      : PLAYER_COLORS[users.filter(u => u.role === 'player').length % PLAYER_COLORS.length];
+
+    const newUser = {
+      id:          'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name,
+      firstName:   name.split(/\s+/)[0],
+      initials:    name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(),
+      role,
+      color,
+      email,
+      googleSignup: true,
+      createdAt:   Date.now(),
+    };
+
+    users.push(newUser);
+    await fbDb.collection('store').doc('users').set({ value: users });
+    location.href = 'index.html';
+  });
 </script>
 </body>
 </html>

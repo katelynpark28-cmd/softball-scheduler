@@ -1047,6 +1047,26 @@ body {
   display: flex;
   justify-content: center;
 }
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  background: #fff;
+  border: 1.5px solid #ddd;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1208;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  margin-bottom: 4px;
+}
+.google-btn:hover { background: #f7f7f7; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 .auth-fineprint {
   text-align: center;
   font-size: 11px;
