@@ -569,7 +569,7 @@ body {
   display: grid;
   grid-template-columns: 36px repeat(7, 1fr);
   gap: 3px;
-  min-width: 380px;
+  /* no min-width — grid shrinks to fit any screen */
 }
 .hm-head, .hm-time {
   font-size: 10px;
@@ -580,7 +580,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.hm-time { text-align: right; padding-right: 6px; }
+.hm-time { text-align: right; padding-right: 4px; white-space: nowrap; font-size: 9px; }
 .hm-cell {
   height: 26px;
   border-radius: 4px;
@@ -1052,10 +1052,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: 100%;
+  width: calc(100% - 8px);
+  margin: 0 4px 4px;
   padding: 13px 20px;
   background: #fff;
-  border: 1.5px solid #ddd;
+  border: 1.5px solid #e0dbd4;
   border-radius: 100px;
   font-size: 14px;
   font-weight: 600;
@@ -1063,10 +1064,10 @@ body {
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s, box-shadow 0.15s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  margin-bottom: 4px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
 }
-.google-btn:hover { background: #f7f7f7; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.google-btn:hover { background: #f7f5f2; box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+.google-btn:active { transform: scale(0.98); }
 .auth-fineprint {
   text-align: center;
   font-size: 11px;
