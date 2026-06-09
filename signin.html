@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in · Brown Softball</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body data-page="auth">
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark">B</div>
+      <div>
+        <div class="brand-name">Brown Softball</div>
+        <div class="brand-sub">Spring 2026</div>
+      </div>
+    </div>
+
+    <div class="auth-headline" id="auth-headline">Welcome to the dugout</div>
+    <div class="auth-sub" id="auth-sub">Sign in with your Gmail to join the team</div>
+
+    <!-- Google sign-in -->
+    <div class="google-section" id="google-section">
+      <div class="g-host" id="google-btn"></div>
+      <div class="auth-error" id="google-error" style="text-align:center;margin-top:8px"></div>
+    </div>
+    <div class="auth-fineprint">Only @gmail.com accounts are allowed.</div>
+  </div>
+</div>
+
+<!-- Role picker shown after first Google sign-in -->
+<div class="modal-backdrop" id="role-modal">
+  <div class="modal">
+    <div class="modal-title" id="role-modal-title">Welcome to the team</div>
+    <div class="modal-sub" id="role-modal-sub">One more step — pick your role</div>
+
+    <div class="field">
+      <div class="field-label">I am a...</div>
+      <div class="role-pick">
+        <label>
+          <input type="radio" name="new-role" value="player" checked />
+          <div class="role-content">
+            <div class="role-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6.5 7c1.6 1.6 2.5 3.1 2.5 5s-.9 3.4-2.5 5"/><path d="M17.5 7c-1.6 1.6-2.5 3.1-2.5 5s.9 3.4 2.5 5"/></svg>
+            </div>
+            <div class="role-name">Player</div>
+            <div class="role-desc">I want to hit</div>
+          </div>
+        </label>
+        <label>
+          <input type="radio" name="new-role" value="coach" />
+          <div class="role-content">
+            <div class="role-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6v3H9z"/><path d="M9 12h6M9 16h4"/></svg>
+            </div>
+            <div class="role-name">Coach</div>
+            <div class="role-desc">I run drills</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button class="auth-submit" id="role-submit">Finish setup</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  // Only Gmail addresses are accepted (team policy).
+  const GMAIL_RE = /^[^\s@]+@gmail\.com$/i;
+
+  // ---- Helpers ----
+  function createUserFromProfile({ name, role, password, email, googleSignup }) {
+    const users = Store.get('users', []);
+    const initials = name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const PLAYER_COLORS = ['#d62828', '#4a7d3e', '#c7912d', '#4a5a6b', '#b8302a', '#7a4ca3', '#1a6b8c', '#8a4b1f', '#2a7059'];
+    const color = role === 'coach' ? '#3d2817' : PLAYER_COLORS[users.filter(u => u.role === 'player').length % PLAYER_COLORS.length];
+    const user = {
+      id: 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name,
+      firstName: name.split(/\s+/)[0],
+      initials,
+      role,
+      color,
+      password: password || null,
+      email: email || null,
+      googleSignup: !!googleSignup,
+      createdAt: Date.now(),
+    };
+    users.push(user);
+    Store.set('users', users);
+    return user;
+  }
+
+  // ---- Google sign-in ----
+  function decodeJwt(token) {
+    const payload = token.split('.')[1];
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  }
+
+  let pendingGoogle = null;
+
+  window.handleGoogleCredential = function(response) {
+    const payload = decodeJwt(response.credential);
+    const email = (payload.email || '').toLowerCase();
+    const name = payload.name || email.split('@')[0];
+    const gErr = document.getElementById('google-error');
+    gErr.textContent = '';
+
+    if (!GMAIL_RE.test(email)) {
+      gErr.textContent = 'Only Gmail accounts are allowed — pick a different Google account.';
+      return;
+    }
+
+    const users = Store.get('users', []);
+    const existing = users.find(u => (u.email || '').toLowerCase() === email);
+    if (existing) {
+      Store.set('currentUserId', existing.id);
+      location.href = 'index.html';
+      return;
+    }
+    pendingGoogle = { email, name };
+    document.getElementById('role-modal-sub').textContent = `Hi ${name.split(' ')[0]} — pick your role to join the team`;
+    document.getElementById('role-modal').classList.add('show');
+  };
+
+  document.getElementById('role-submit').addEventListener('click', () => {
+    if (!pendingGoogle) return;
+    const role = document.querySelector('input[name="new-role"]:checked').value;
+    const user = createUserFromProfile({
+      name: pendingGoogle.name,
+      role,
+      email: pendingGoogle.email,
+      googleSignup: true,
+    });
+    Store.set('currentUserId', user.id);
+    location.href = 'index.html';
+  });
+
+  // ---- Init Google ----
+  function initGoogle() {
+    const section = document.getElementById('google-section');
+
+    // Google OAuth blocks any file:// origin. Most common failure mode is
+    // double-clicking signin.html instead of going through the local server.
+    if (location.protocol === 'file:') {
+      section.innerHTML = `
+        <div class="config-warn">
+          <strong>Open this via the local server.</strong>
+          Google sign-in only works at <code>http://localhost</code>, not when the file is opened directly.<br><br>
+          From the project folder, run<br>
+          <code>python -m http.server 5173</code><br>
+          then visit <code>http://localhost:5173/signin.html</code>.
+        </div>
+      `;
+      return;
+    }
+
+    const cid = window.GOOGLE_CLIENT_ID;
+    if (!cid || cid.startsWith('YOUR_CLIENT_ID')) {
+      section.innerHTML = `<div class="config-warn"><strong>Google sign-in not configured yet.</strong> Add your Client ID to <code>config.js</code> — instructions are in that file.</div>`;
+      return;
+    }
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+      setTimeout(initGoogle, 120);
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: cid,
+      callback: window.handleGoogleCredential,
+      auto_select: false,
+      use_fedcm_for_prompt: true,
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('google-btn'),
+      { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', logo_alignment: 'left', width: 320 }
+    );
+    // Note: One Tap prompt removed for now — it doesn't play well with
+    // sandboxed previews. The button works fine on its own.
+  }
+  initGoogle();
+
+  // ---- If already signed in, bounce ----
+  if (Store.get('currentUserId', null)) {
+    const users = Store.get('users', []);
+    const exists = users.find(u => u.id === Store.get('currentUserId', null));
+    if (exists) location.href = 'index.html';
+  }
+</script>
+</body>
+</html>
