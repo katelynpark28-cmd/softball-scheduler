@@ -1418,9 +1418,10 @@ function initPractices() {
     }
   }
 
-  // Practice modal
+  // Practice modal (wire once — initPractices re-runs on every submit/refresh)
   const modal = document.getElementById('practice-modal');
-  if (modal) {
+  if (modal && !modal.dataset.wired) {
+    modal.dataset.wired = '1';
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.classList.remove('show');
     });
