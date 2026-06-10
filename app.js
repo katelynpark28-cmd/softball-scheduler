@@ -1433,7 +1433,7 @@ function initPractices() {
       e.preventDefault();
       const fd = new FormData(e.target);
       const day = fd.get('day');
-      const time = fd.get('time');
+      const time = `${fd.get('time_start')} – ${fd.get('time_end')}`;
       const title = (fd.get('title') || 'Team practice').trim();
       const location = (fd.get('location') || 'TBD').trim();
       const required = fd.get('required') === 'on';
@@ -1508,8 +1508,9 @@ function renderLineupCard(p, user) {
   let foot = '';
   if (isHostingCoach) {
     foot = `
-      <div style="padding:14px 20px;background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--gold);text-transform:uppercase;text-align:center">
-        You're running this one
+      <div class="lineup-foot">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--gold);text-transform:uppercase">You're running this one</span>
+        <button class="ghost" data-action="delete" data-id="${p.id}" style="color:var(--red);border-color:var(--red)">Delete</button>
       </div>
     `;
   } else {
@@ -1559,6 +1560,14 @@ function wireLineupCards() {
       if (!p) return;
       p.attendees = p.attendees || [];
       p.declined = p.declined || [];
+
+      if (action === 'delete') {
+        if (!confirm('Delete this practice? This cannot be undone.')) return;
+        savePractices(practices.filter(x => x.id !== id));
+        initPractices();
+        toast('Practice deleted');
+        return;
+      }
 
       if (action === 'in') {
         if (!p.attendees.includes(user.id)) {
