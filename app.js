@@ -582,7 +582,7 @@ function initHome() {
       tagline.textContent = `${users.length} on the team.${unreadStr}`;
     } else {
       const next = practices[0];
-      tagline.textContent = `Next practice ${next.dow} at ${next.time}.${unreadStr}`;
+      tagline.textContent = `Next event ${next.dow} at ${next.time}.${unreadStr}`;
     }
   }
 
@@ -595,7 +595,7 @@ function initHome() {
     stats.innerHTML = `
       <div class="stat"><div class="stat-num">${totalPlayers}</div><div class="stat-label">Players</div></div>
       <div class="stat"><div class="stat-num">${totalCoaches}</div><div class="stat-label">Coaches</div></div>
-      <div class="stat"><div class="stat-num">${goingNext}</div><div class="stat-label">Next practice</div></div>
+      <div class="stat"><div class="stat-num">${goingNext}</div><div class="stat-label">Next event</div></div>
     `;
   }
 
@@ -632,7 +632,7 @@ function initHome() {
     const msgDesc = document.querySelector('a[href="messages.html"] .menu-desc');
     if (msgDesc) msgDesc.textContent = 'Private chats with your players';
     const pracDesc = document.querySelector('a[href="practices.html"] .menu-desc');
-    if (pracDesc) pracDesc.textContent = 'Schedule team practices';
+    if (pracDesc) pracDesc.textContent = 'Schedule team events';
     const calDesc = document.querySelector('a[href="calendars.html"] .menu-desc');
     if (calDesc) calDesc.textContent = 'Mark your coaching hours';
   }
@@ -1380,8 +1380,8 @@ function initPractices() {
   const sub = document.getElementById('practices-sub');
   if (sub) {
     sub.textContent = user.role === 'coach'
-      ? 'Schedule team practices and see who is in'
-      : 'Team practices and the next lineup';
+      ? 'Schedule team events and see who is in'
+      : 'Team events and the next lineup';
   }
 
   const scheduleSlot = document.getElementById('schedule-slot');
@@ -1390,7 +1390,7 @@ function initPractices() {
       scheduleSlot.innerHTML = `
         <button class="schedule-btn" id="schedule-btn">
           <span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          Schedule a team practice
+          Schedule an event
         </button>
       `;
       document.getElementById('schedule-btn').addEventListener('click', () => {
@@ -1409,7 +1409,7 @@ function initPractices() {
           <div class="empty-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           </div>
-          <div class="empty-title">No team practices scheduled</div>
+          <div class="empty-title">No events scheduled</div>
           <div class="empty-sub">${user.role === 'coach' ? 'Tap the gold button above to set one up.' : 'A coach will schedule the next one.'}</div>
         </div>
       `;
@@ -1420,7 +1420,7 @@ function initPractices() {
       // "Add all to calendar" button above the cards
       const addAllBtn = document.createElement('button');
       addAllBtn.className = 'add-all-cal-btn';
-      addAllBtn.innerHTML = '📅 Add all practices to calendar';
+      addAllBtn.innerHTML = '📅 Add all events to calendar';
       lineupHost.insertBefore(addAllBtn, lineupHost.firstChild);
       addAllBtn.addEventListener('click', () => downloadAllIcs(practices));
     }
@@ -1430,10 +1430,13 @@ function initPractices() {
   const modal = document.getElementById('practice-modal');
   if (modal && !modal.dataset.wired) {
     modal.dataset.wired = '1';
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.classList.remove('show');
-    });
-    document.getElementById('practice-cancel')?.addEventListener('click', () => modal.classList.remove('show'));
+    const closeModal = () => {
+      modal.classList.remove('show');
+      delete modal.dataset.editingId;
+      document.getElementById('practice-modal-title').textContent = 'Schedule an event';
+    };
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.getElementById('practice-cancel')?.addEventListener('click', closeModal);
 
     wireCapToggle(modal);
 
@@ -1442,13 +1445,29 @@ function initPractices() {
       const fd = new FormData(e.target);
       const day = fd.get('day');
       const time = `${fd.get('time_start')} – ${fd.get('time_end')}`;
-      const title = (fd.get('title') || 'Team practice').trim();
+      const title = (fd.get('title') || 'Team event').trim();
       const location = (fd.get('location') || 'TBD').trim();
       const required = fd.get('required') === 'on';
       const capToggle = e.target.querySelector('.cap-toggle');
       const isUnlimited = capToggle?.classList.contains('active');
       const capacity = isUnlimited ? null : Math.max(1, parseInt(fd.get('capacity')) || 15);
       const [dow, dayNum] = day.split('-');
+      const editingId = modal.dataset.editingId;
+      if (editingId) {
+        const list = getPractices();
+        const idx = list.findIndex(x => x.id === editingId);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], dow, day: parseInt(dayNum), time, title, location, required, capacity };
+          savePractices(list);
+        }
+        delete modal.dataset.editingId;
+        document.getElementById('practice-modal-title').textContent = 'Schedule an event';
+        modal.classList.remove('show');
+        resetForm(e.target);
+        initPractices();
+        toast('Event updated');
+        return;
+      }
       const newPractice = {
         id: 'p_' + Date.now(),
         dow,
@@ -1465,11 +1484,11 @@ function initPractices() {
       const list = getPractices();
       list.unshift(newPractice);
       savePractices(list);
-      postAnnouncement(`📅 Practice scheduled: ${newPractice.title} on ${newPractice.dow} Jun ${String(newPractice.day).padStart(2,'0')} at ${newPractice.time}`, 'practice_added');
+      postAnnouncement(`📅 Event scheduled: ${newPractice.title} on ${newPractice.dow} Jun ${String(newPractice.day).padStart(2,'0')} at ${newPractice.time}`, 'practice_added');
       modal.classList.remove('show');
       resetForm(e.target);
       initPractices();
-      toast('Practice scheduled');
+      toast('Event scheduled');
     });
   }
 }
@@ -1539,7 +1558,8 @@ function renderLineupCard(p, user) {
   const reqTag = p.required ? '<span class="lineup-req-tag">Required</span>' : '';
 
   const deleteBtn = isHostingCoach
-    ? `<button class="lineup-delete-btn" data-action="delete" data-id="${p.id}" title="Delete practice">✕</button>`
+    ? `<button class="lineup-edit-btn" data-action="edit" data-id="${p.id}" title="Edit event">✎</button>
+       <button class="lineup-delete-btn" data-action="delete" data-id="${p.id}" title="Delete event">✕</button>`
     : '';
 
   return `
@@ -1573,19 +1593,46 @@ function wireLineupCards() {
       p.attendees = p.attendees || [];
       p.declined = p.declined || [];
 
+      if (action === 'edit') {
+        const modal = document.getElementById('practice-modal');
+        const form = document.getElementById('practice-form');
+        // Pre-fill fields
+        const [startTime, endTime] = (p.time || '').split(' – ');
+        form.querySelector('[name="day"]').value = `${p.dow}-${p.day}`;
+        form.querySelector('[name="time_start"]').value = startTime || '10 AM';
+        form.querySelector('[name="time_end"]').value = endTime || '11 AM';
+        form.querySelector('[name="title"]').value = p.title || '';
+        form.querySelector('[name="location"]').value = p.location || '';
+        form.querySelector('[name="required"]').checked = !!p.required;
+        const capInput = form.querySelector('[name="capacity"]');
+        const capToggle = form.querySelector('.cap-toggle');
+        if (p.capacity == null) {
+          capInput.disabled = true;
+          capToggle.classList.add('active');
+        } else {
+          capInput.value = p.capacity;
+          capInput.disabled = false;
+          capToggle.classList.remove('active');
+        }
+        document.getElementById('practice-modal-title').textContent = 'Edit event';
+        modal.dataset.editingId = p.id;
+        modal.classList.add('show');
+        return;
+      }
+
       if (action === 'delete') {
-        if (!confirm('Delete this practice? This cannot be undone.')) return;
-        postAnnouncement(`❌ Practice cancelled: ${p.title} on ${p.dow} Jun ${String(p.day).padStart(2,'0')} at ${p.time}`, 'practice_cancelled');
+        if (!confirm('Delete this event? This cannot be undone.')) return;
+        postAnnouncement(`❌ Event cancelled: ${p.title} on ${p.dow} Jun ${String(p.day).padStart(2,'0')} at ${p.time}`, 'practice_cancelled');
         savePractices(practices.filter(x => x.id !== id));
         initPractices();
-        toast('Practice deleted');
+        toast('Event deleted');
         return;
       }
 
       if (action === 'in') {
         if (!p.attendees.includes(user.id)) {
           if (p.capacity != null && p.attendees.length >= p.capacity) {
-            toast("Practice is full");
+            toast("Event is full");
             return;
           }
           p.attendees.push(user.id);

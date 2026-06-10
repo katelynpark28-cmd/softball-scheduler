@@ -387,6 +387,25 @@ body {
 .joinbtn.joined { background: var(--green-lt); color: var(--green); }
 
 /* ============ Practices ============ */
+.lineup-edit-btn {
+  position: absolute;
+  top: 10px;
+  right: 38px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,253,247,0.7);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.lineup-edit-btn:hover { background: rgba(255,255,255,0.2); }
+
 .lineup-delete-btn {
   position: absolute;
   top: 10px;

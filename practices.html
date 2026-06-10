@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Practice schedules · Brown Softball</title>
+<title>Events · Brown Softball</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -30,18 +30,18 @@
 
   <div class="page-title-block">
     <a href="index.html" class="crumb">← Menu</a>
-    <div class="page-title">Practice schedules</div>
-    <div class="page-sub" id="practices-sub">Team practices and the next lineup</div>
+    <div class="page-title">Events</div>
+    <div class="page-sub" id="practices-sub">Team events and the next lineup</div>
   </div>
 
   <div id="schedule-slot"></div>
   <div id="lineup-host"></div>
 </div>
 
-<!-- Modal: schedule team practice -->
+<!-- Modal: schedule/edit event -->
 <div class="modal-backdrop" id="practice-modal">
   <div class="modal">
-    <div class="modal-title">Schedule a team practice</div>
+    <div class="modal-title" id="practice-modal-title">Schedule an event</div>
     <div class="modal-sub">Set a time and the team will RSVP</div>
 
     <form id="practice-form">
@@ -94,7 +94,7 @@
 
       <div class="field">
         <div class="field-label">Title</div>
-        <input type="text" name="title" placeholder="Field practice, scrimmage, cage work..." />
+        <input type="text" name="title" placeholder="Practice, scrimmage, game, cage work..." />
       </div>
 
       <div class="field">
@@ -140,7 +140,7 @@
   </a>
   <a class="tab active" href="practices.html">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-    Practice
+    Events
   </a>
   <a class="tab" href="calendars.html">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
