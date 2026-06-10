@@ -124,6 +124,14 @@ function getSessions() { return Store.get('sessions', []); }
 function saveSessions(s) { Store.set('sessions', s); }
 function getPractices() { return Store.get('practices', []); }
 function savePractices(p) { Store.set('practices', p); }
+function getAnnouncements() { return Store.get('announcements', []); }
+function saveAnnouncements(a) { Store.set('announcements', a); }
+function postAnnouncement(text, type) {
+  const user = Auth.currentUser();
+  const list = getAnnouncements();
+  list.unshift({ id: 'a_' + Date.now(), text, type: type || 'manual', authorId: user?.id || null, timestamp: Date.now() });
+  saveAnnouncements(list);
+}
 
 // ---- Chats (1:1 + group) ----
 function getChats() { return Store.get('chats', []); }
@@ -1457,6 +1465,7 @@ function initPractices() {
       const list = getPractices();
       list.unshift(newPractice);
       savePractices(list);
+      postAnnouncement(`📅 Practice scheduled: ${newPractice.title} on ${newPractice.dow} Jun ${String(newPractice.day).padStart(2,'0')} at ${newPractice.time}`, 'practice_added');
       modal.classList.remove('show');
       resetForm(e.target);
       initPractices();
@@ -1566,6 +1575,7 @@ function wireLineupCards() {
 
       if (action === 'delete') {
         if (!confirm('Delete this practice? This cannot be undone.')) return;
+        postAnnouncement(`❌ Practice cancelled: ${p.title} on ${p.dow} Jun ${String(p.day).padStart(2,'0')} at ${p.time}`, 'practice_cancelled');
         savePractices(practices.filter(x => x.id !== id));
         initPractices();
         toast('Practice deleted');
@@ -2095,6 +2105,73 @@ function openAvailEditor() {
 }
 
 // ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+function initAnnouncements() {
+  const user = Auth.currentUser();
+  const announcements = getAnnouncements();
+
+  const compose = document.getElementById('announce-compose');
+  if (compose && user.role === 'coach') {
+    compose.innerHTML = `
+      <div class="announce-compose-box">
+        <textarea id="announce-input" placeholder="Write an announcement to the team..." rows="3"></textarea>
+        <button id="announce-post" class="primary">Post</button>
+      </div>
+    `;
+    document.getElementById('announce-post').addEventListener('click', () => {
+      const input = document.getElementById('announce-input');
+      const text = input.value.trim();
+      if (!text) return;
+      postAnnouncement(text, 'manual');
+      input.value = '';
+      initAnnouncements();
+      toast('Announcement posted');
+    });
+  }
+
+  const feed = document.getElementById('announce-feed');
+  if (!feed) return;
+
+  if (announcements.length === 0) {
+    feed.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="empty-title">No announcements yet</div>
+        <div class="empty-sub">${user.role === 'coach' ? 'Post one above to notify the team.' : 'Coaches will post updates here.'}</div>
+      </div>
+    `;
+    return;
+  }
+
+  feed.innerHTML = announcements.map(a => {
+    const author = a.authorId ? getUser(a.authorId) : null;
+    const when = formatAnnounceTime(a.timestamp);
+    const isCancelled = a.type === 'practice_cancelled';
+    const isAdded = a.type === 'practice_added';
+    const typeClass = isCancelled ? 'announce-cancelled' : isAdded ? 'announce-added' : '';
+    return `
+      <div class="announce-card ${typeClass}">
+        <div class="announce-text">${escapeHtml(a.text)}</div>
+        <div class="announce-meta">${author ? escapeHtml(author.name) + ' · ' : ''}${when}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatAnnounceTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMin = Math.floor((now - d) / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ============================================================
 // Boot
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -2119,9 +2196,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTopbar();
     startNotifications();
 
-    if (page === 'home')      initHome();
-    if (page === 'messages')  initMessages();
-    if (page === 'practices') initPractices();
-    if (page === 'calendars') initCalendars();
+    if (page === 'home')          initHome();
+    if (page === 'messages')      initMessages();
+    if (page === 'practices')     initPractices();
+    if (page === 'calendars')     initCalendars();
+    if (page === 'announcements') initAnnouncements();
   });
 });

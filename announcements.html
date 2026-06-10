@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Calendars · Brown Softball</title>
+<title>Announcements · Brown Softball</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="firebase-init.js"></script>
 </head>
-<body data-page="calendars">
+<body data-page="announcements">
 
 <div class="app">
 
@@ -30,41 +30,14 @@
 
   <div class="page-title-block">
     <a href="index.html" class="crumb">← Menu</a>
-    <div class="page-title">Calendars</div>
-    <div class="page-sub">When players and coaches are free — darker = more people</div>
+    <div class="page-title">Announcements</div>
+    <div class="page-sub">Team-wide updates from coaching staff</div>
   </div>
 
-  <!-- Add my availability -->
-  <button class="post-btn" id="compose-btn" style="margin-bottom:14px">
-    <span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-    <span id="compose-label">When can you hit?</span>
-  </button>
+  <div id="announce-compose"></div>
+  <div id="announce-feed"></div>
 
-  <div class="role-toggle">
-    <button class="active" data-role="players">Players</button>
-    <button data-role="coaches">Coaches</button>
-  </div>
-
-  <div class="heatmap">
-    <div class="heatmap-grid" id="heatmap"></div>
-    <div class="hm-legend">
-      <span>This week</span>
-      <div class="hm-scale">
-        <span>fewer</span>
-        <div class="sw" style="background:var(--bg-2)"></div>
-        <div class="sw" style="background:var(--brown-lt)"></div>
-        <div class="sw" style="background:#d8c6a8"></div>
-        <div class="sw" style="background:#b39668"></div>
-        <div class="sw" style="background:var(--brown-2)"></div>
-        <div class="sw" style="background:var(--brown)"></div>
-        <span>more</span>
-      </div>
-    </div>
-  </div>
 </div>
-
-<!-- Availability editor modal -->
-<div class="modal-backdrop" id="avail-modal"></div>
 
 <div class="tabbar">
   <a class="tab" href="index.html">
@@ -79,11 +52,11 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     Practice
   </a>
-  <a class="tab active" href="calendars.html">
+  <a class="tab" href="calendars.html">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     Cal
   </a>
-  <a class="tab" href="announcements.html">
+  <a class="tab active" href="announcements.html">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     News
   </a>
