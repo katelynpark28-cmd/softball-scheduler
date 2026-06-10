@@ -1582,7 +1582,7 @@ function renderLineupCard(p, user) {
 }
 
 function wireLineupCards() {
-  document.querySelectorAll('.lineup-foot button, .lineup-delete-btn').forEach(btn => {
+  document.querySelectorAll('.lineup-foot button, .lineup-delete-btn, .lineup-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const user = Auth.currentUser();
       const id = btn.dataset.id;
