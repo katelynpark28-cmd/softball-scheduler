@@ -1508,9 +1508,8 @@ function renderLineupCard(p, user) {
   let foot = '';
   if (isHostingCoach) {
     foot = `
-      <div class="lineup-foot">
-        <span style="font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--gold);text-transform:uppercase">You're running this one</span>
-        <button class="ghost" data-action="delete" data-id="${p.id}" style="color:var(--red);border-color:var(--red)">Delete</button>
+      <div style="padding:14px 20px;background:rgba(255,255,255,0.04);font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--gold);text-transform:uppercase;text-align:center">
+        You're running this one
       </div>
     `;
   } else {
@@ -1530,8 +1529,12 @@ function renderLineupCard(p, user) {
 
   const reqTag = p.required ? '<span class="lineup-req-tag">Required</span>' : '';
 
+  const deleteBtn = isHostingCoach
+    ? `<button class="lineup-delete-btn" data-action="delete" data-id="${p.id}" title="Delete practice">✕</button>`
+    : '';
+
   return `
-    <div class="lineup-card" data-id="${p.id}">
+    <div class="lineup-card" data-id="${p.id}" style="position:relative">${deleteBtn}
       <div class="lineup-head">
         <div class="lineup-tag">★ ${escapeHtml(p.title)} ${reqTag}</div>
         <div class="lineup-when">${p.time} · ${p.dow} Jun ${String(p.day).padStart(2,'0')}</div>
@@ -1550,7 +1553,7 @@ function renderLineupCard(p, user) {
 }
 
 function wireLineupCards() {
-  document.querySelectorAll('.lineup-foot button').forEach(btn => {
+  document.querySelectorAll('.lineup-foot button, .lineup-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const user = Auth.currentUser();
       const id = btn.dataset.id;
