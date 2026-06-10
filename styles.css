@@ -795,7 +795,7 @@ body {
   box-sizing: border-box;
 }
 .announce-compose-box textarea:focus { outline: none; border-color: var(--brown-lt); }
-.announce-compose-box .primary { align-self: flex-end; }
+.announce-compose-box .primary { align-self: flex-end; padding: 8px 20px; font-size: 13px; }
 
 .announce-card {
   margin: 0 16px 10px;
