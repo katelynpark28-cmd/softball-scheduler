@@ -11,5 +11,10 @@ const _firebaseConfig = {
 };
 
 firebase.initializeApp(_firebaseConfig);
-window.fbDb   = firebase.firestore();
-window.fbAuth = firebase.auth();
+window.fbDb        = firebase.firestore();
+window.fbAuth      = firebase.auth();
+window.fbMessaging = firebase.messaging();
+
+// Get this from Firebase Console → Project Settings → Cloud Messaging
+// → Web Push certificates → Generate key pair
+window.fbVapidKey  = 'YOUR_VAPID_KEY_HERE';

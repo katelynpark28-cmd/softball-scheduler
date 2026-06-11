@@ -2152,6 +2152,24 @@ function openAvailEditor() {
 }
 
 // ============================================================
+// PUSH NOTIFICATIONS
+// ============================================================
+async function registerPushToken() {
+  try {
+    if (!('Notification' in window) || !window.fbMessaging || !window.fbVapidKey || window.fbVapidKey === 'YOUR_VAPID_KEY_HERE') return;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const token = await window.fbMessaging.getToken({ vapidKey: window.fbVapidKey });
+    if (!token) return;
+    const user = Auth.currentUser();
+    if (!user) return;
+    await window.fbDb.collection('store').doc('fcm_tokens').set({ [user.id]: token }, { merge: true });
+  } catch (e) {
+    // Notifications not supported or blocked — fail silently
+  }
+}
+
+// ============================================================
 // ANNOUNCEMENTS
 // ============================================================
 function initAnnouncements() {
@@ -2242,6 +2260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     migrateMessagesToChats();
     renderTopbar();
     startNotifications();
+    registerPushToken();
 
     if (page === 'home')          initHome();
     if (page === 'messages')      initMessages();
